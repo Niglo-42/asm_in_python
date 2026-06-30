@@ -1,32 +1,117 @@
 import sys
+from enum import Enum
 
+class Type(Enum):
+    R = 0
+    I = 1
+    S = 2
+    B = 3
+    U = 4
+    J = 5
+    
+N = 11
 
-def get_reg(pos: int, token: str):
-    """recup le nombre apres le r de reg (sans le ",")puis le decal de la bonne
-    valeur en fonction de sa position (dest, src1, src2)"""
-    return int(token[1:]) << [51, 46, 41][pos]
+class Reg:
+    reg = {
+        "x0": 0,
+        "ra": 1,
+        "sp": 2,
+        "gp": 3,
+        "tp": 4,
+        "t0": 5,
+        "t1": 6,
+        "t2": 7,
+        "fp": 8,
+        "s1": 9,
+        "a0": 10,
+        "a1": 11,
+        "a2": 12,
+        "a3": 13,
+        "a4": 14,
+        "a5": 15,
+        "a6": 16,
+        "a7": 17,
+        "s2": 18,
+        "s3": 19,
+        "s4": 20,
+        "s5": 21,
+        "s6": 22,
+        "s7": 23,
+        "s8": 24,
+        "s9": 25,
+        "s10": 26,
+        "s11": 27,
+        "t3": 28,
+        "t4": 29,
+        "t5": 30,
+        "t6": 31
+    }
+
+    def get_reg(pos: int, token: str, type: Type) ->int:
+        if type == Type.B or type == Type.S:
+            pos += 1
+        return Reg.reg[token] << [7, 15, 20][pos]
+
+def get_imm(val: int, type: Type, pos: int) -> int:
+    if type == Type.I or type == Type.U:
+        return int(val << 20) & 0xffffffff
+    elif type == Type.S:
+        five_bits = (val & 0x1f) << 7
+        seven_bits = (val & 0xfe0) << 25
+        return int(five_bits | seven_bits) & 0xffffffff
+    elif type == Type.J:
+        eleven_b = (val & 0xffe) << 20
+        bit = (val & 0x1000) << 8
+        eight_bits = (val & 0x1fe000) << 1
+        return int(eleven_b | bit | eight_bits) & 0xffffffff
+    elif type == Type.B:
+        val = val - pos
+        five_bits = (val & 0x1f) << 7
+        seven_bits = (val & 0xfe0) << 20
+        return int(five_bits | seven_bits) & 0xffffffff
 
 
 def instruction_table_init(tab: dict):
-    tab["add"] = 1 << 56
-    tab["sub"] = 2 << 56
-    tab["mul"] = 3 << 56
-    tab["div"] = 4 << 56
-    tab["mod"] = 5 << 56
-    tab["shl"] = 6 << 56
-    tab["shr"] = 7 << 56
-    tab["mov"] = 8 << 56
-    tab["imov"] = 9 << 56
-    tab["rol"] = 10 << 56
-    tab["ror"] = 11 << 56
-    tab["cmp"] = 12 << 56
-    tab["jmp"] = 13 << 56
-    tab["je"] = 14 << 56
-    tab["jlt"] = 15 << 56
-    tab["jgt"] = 16 << 56
-    tab["jle"] = 17 << 56
-    tab["jge"] = 18 << 56
+    tab["add"] = (0x30, Type.R)
+    tab["sub"] = (0x40000030, Type.R)
+    tab["and"] = (0x7030, Type.R)
+    tab["or"] = (0x6030, Type.R)
+    tab["xor"] = (0x4030, Type.R)
+    tab["jal"] = (0x6c, Type.J)
+    tab["jalr"] = (0x64, Type.I)
+    tab["lui"] = (0x34, Type.U)
+    tab["auipc"] = (0x14, Type.U)
+    tab["sll"] = (0x1030, Type.R)
+    tab["slt"] = (0x2030, Type.R)
+    tab["sltu"] = (0x3030, Type.R)
+    tab["sra"] = (0x40005030, Type.R)
+    tab["srl"] = (0x5030, Type.R)
+    tab["beq"] = (0x0060, Type.B)
+    tab["bge"] = (0x5060, Type.B)
+    tab["bgeu"] = (0x7060, Type.B)
+    tab["blt"] = (0x4060, Type.B)
+    tab["bltu"] = (0x6060, Type.B)
+    tab["bne"] = (0x1060, Type.B)
+    tab["lb"] = (0x00, Type.R)
+    tab["lh"] = (0x1000, Type.R)
+    tab["lw"] = (0x2000, Type.R)
+    tab["lbu"] = (0x4000, Type.R)
+    tab["lhu"] = (0x5000, Type.R)
+    tab["sb"] = (0x0020, Type.S)
+    tab["sh"] = (0x1020, Type.S)
+    tab["sw"] = (0x2020, Type.S)
 
+    tab["addi"] = (0x10, Type.I)
+    tab["subi"] = (0x40000010, Type.I)
+    tab["andi"] = (0x7010, Type.I)
+    tab["ori"] = (0x6010, Type.I)
+    tab["xori"] = (0x4010, Type.I)
+    tab["slli"] = (0x1010, Type.I)
+    tab["slti"] = (0x2010, Type.I)
+    tab["sltui"] = (0x3010, Type.I)
+    tab["srai"] = (0x40005010, Type.I)
+    tab["srli"] = (0x5010, Type.I)
+    tab["read_file"] = (0x3060, Type.R)
 
 def shunting_yard(toks: list[str], vars: dict) -> int:
     input = []
@@ -53,7 +138,7 @@ def shunting_yard(toks: list[str], vars: dict) -> int:
         nbrs.append([])
         char = 0
         while char < len(tok):
-            if tok in vars
+            if tok in vars:
                 try:
                     input.append(int(vars[tok]))
                 except ValueError:
@@ -84,18 +169,20 @@ def shunting_yard(toks: list[str], vars: dict) -> int:
         i += 1
     while holding_stack:
         output.append(holding_stack.pop())
+    if len(output) < 2:
+        return int(output[0])
     while output:
-        while isinstance(output[0], int):
+        while output and isinstance(output[0], int):
             solve_stack.append(output.pop(0))
-        b = solve_stack.pop()
-        a = solve_stack.pop()
+        if len(solve_stack):
+            b = solve_stack.pop()
+        if len(solve_stack):
+            a = solve_stack.pop()
         solve_stack.append(ops[output.pop(0)](a, b))
     return int(solve_stack[0])
 
 
 def asm(executable: list):
-    if len(sys.argv) != 2:
-        exit(1)
     instruction_table = {}
     instruction_table_init(instruction_table)
     tokens = []
@@ -103,13 +190,13 @@ def asm(executable: list):
     vars = {}
     const = {}
     i = 0
-    with open(sys.argv[1], "r") as file:
+    with open("bootloader.s", "r") as file:
         for line in file:
-            line = line.strip(" ").rstrip("\n")
-            if line.startswith(";"):
+            line = line.strip()
+            # line = line.split(";", 1)[0].strip()
+            if not line or line.startswith(";"):
                 continue
-            tokens.append([])
-            tokens[-1] = line.split(" ")
+            tokens.append(line.split(" "))
             label = tokens[-1][0].find(":")
             if label >= 0:
                 labels[tokens[-1][0][0: label]] = i
@@ -124,42 +211,56 @@ def asm(executable: list):
                 if len(tokens[-1]) > 2:
                     const[tokens[-1][1]] = shunting_yard(tokens[-1][2:], vars)
                 else:
-                    raise ValueError("A ")
+                    raise ValueError("des trucs")
             else:
                 i += 1
         nb_line = 0
         line_src = 0
+        type = Type.R
         executable.append(0)
-        print('\n'.join(str(t) for t in tokens))
+        # print('\n'.join(str(t) for t in tokens))
         for line in tokens:
             line_src += 1
             pos_token = 0
+            if line[0].startswith("const") or line[0].startswith("var"):
+                print(f"{line[1]=}")
+                continue
             for token in line:
-                if token.startswith(";"):
+                token = token.strip(",")
+                if token.startswith(";") or token.startswith(" ") or token.startswith("\n"):
+                    continue
+                if token == "" or token == "\n":
                     continue
                 if token == "var" or token == "const":
                     break
                 if token == "halt":
-                    executable[nb_line] |= 33 << 24
+                    executable[nb_line] |= 0xffffffff
                     return
                 if token in instruction_table:
-                    executable[nb_line] |= instruction_table[token]
+                    type = instruction_table[token][1]
+                    executable[nb_line] |= instruction_table[token][0]
                 elif token.endswith(":"):
                     continue
                 elif token in vars:
                     executable[nb_line] |= vars[token]
                 elif token in const:
-                    executable[nb_line] |= const[token]
+                    executable[nb_line] |= get_imm(const[token], Type.I, 0)
                 elif token in labels:
-                    executable[nb_line] |= labels[token]
-                elif token.startswith(("r", "R")):
-                    executable[nb_line] |= get_reg(pos_token, token.strip(","))
+                    imm = get_imm(labels[token], type, nb_line)
+                    if imm == -1:
+                        return print(f"error at line {nb_line + 1}, {token=}")
+                    executable[nb_line] |= imm
+                elif token in Reg.reg:
+                    executable[nb_line] |= Reg.get_reg(pos_token, token, type)
+                    pos_token += 1
                 elif token.startswith("#"):
-                    executable[nb_line] |= int(token[1:])
+                    imm = get_imm(int(token[1:]), type, 0)
+                    if imm == -1:
+                        return print(f"error at line {nb_line}, {token=}")
+                    executable[nb_line] |= imm
                 else:
                     raise ValueError(
                         f"Value Error at line {line_src}, {token=}")
-                pos_token += 1
             if executable[nb_line]:
                 executable.append(0)
                 nb_line += 1
@@ -167,14 +268,14 @@ def asm(executable: list):
 
 def main():
     exec = []
-    try:
-        asm(exec)
-    except Exception as e:
-        print(e)
-        exit(1)
+    asm(exec)
     for line in exec:
         print(hex(line))
-
+    lenght = len(exec) * 4 + 4
+    with open("bootloader.bin", "wb") as f:
+        f.write(lenght.to_bytes(4, byteorder="little"))
+        for byte in exec:
+            f.write(byte.to_bytes(4, byteorder="little"))
 
 if __name__ == "__main__":
     main()
