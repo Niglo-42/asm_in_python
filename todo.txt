@@ -1,0 +1,50 @@
+    -implementer lexer propre avec metadonné et pas de skip // strip(",") ou autre
+
+    -implémenter:
+    "if (reg ou expr comparateur_op reg ou expr)
+    {
+        body
+    }"
+    créer un label (imm) vers après le body, inverser la condition
+    donc si false ne pas rentrer et sauter à la fin.
+
+    CONVENTION: t0 = reg de comp
+                t1 = reg2 de comp
+                t2 = compteur pour boucle
+    
+    "while (t0 < t1)
+    {
+
+    }
+    "
+    créer label start et end avec un goto start à la fin du body
+
+    vars max 10 dans reg sinon adress dans la ram (ram[heap]):
+    donc si déclar de var, exemple (var x = 0)
+    alors x = reg 18 ou s2 dans cette archi
+    max = reg 27 aka s11
+    donc tenir à jour un compteur allant de 0 à 9
+    et si nouvelle déclaration de var alors inc le compteur et assigner dans la table 
+    de correspondance.
+    exemple: var x // vars["x"] = list_reg[compteur] // ou list_reg = ["s2", "s3" .. "s11"]
+             var y = 22 // vars["y"] = list_reg[compteur]
+                        // (et) addi var["y"], x0, #22 // addi rd, x0, imm == mov
+
+    "i++"
+    soit "addi i, i, #1" // où "i" est un reg
+
+    si compteur dépasse 10 alors on store dans la ram avec
+    sw, et on load avec lw. ce qui rajoute une étape intermédaire avec un ref tampon
+
+
+//////////
+
+    Phase 0 (lexer)
+    tokens = lexer(code)
+    Phase 1 (parser)
+    AST = parser(tokens)
+    Phase 2 (semantic)
+    resolve_labels(AST)
+    resolve_vars(AST)
+    Phase 3 (codegen)
+    emit_riscv(AST)
